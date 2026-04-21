@@ -2,91 +2,156 @@ using Unity.VectorGraphics;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using System.Collections;
 
 public class MainMenuScr : MonoBehaviour
 {
-    [Header("Кнопки")]
-    public Button playBTN;
-    //public Button settingsBTN;
-    public Button exitBTN;
-    public Button cancelBTN;
+    [Header("Панели")]
+    public GameObject title;
+    public GameObject buttonPanel;
+    public GameObject levelSelectPanel;
+    public GameObject settingsPanel;
 
-    [Header("Кнопки уровней")]
-    public Button firstLVLBTN;
-    public Button secondLVLBTN;
-    public Button thirdLVLBTN;
-    public Button fourLVLBTN;
-    public Button fiveLVLBTN;
+    [Header("Камера")]
+    public Camera mainCamera;
+    public Transform zoomTarget;
+    public float zoomedOrthographicSize = 2f;
+    public float zoomDuration = 1f;
 
-    [Header("Панели меню")]
-    public GameObject menuPanel;
-    //public GameObject settingsPanel;
-    public GameObject lvlChoicePanel;
+    private Vector3 originalCameraPos;
+    private float originalOrthographicSize;
 
 
     void Start()
     {
-        playBTN.onClick.AddListener(Play);
-        //settingsBTN.onClick.AddListener(Settings);
-        exitBTN.onClick.AddListener(Exit);
-        cancelBTN.onClick.AddListener(Cancel);
-        firstLVLBTN.onClick.AddListener(firstLVL);
-        secondLVLBTN.onClick.AddListener(secondLVL);
-        thirdLVLBTN.onClick.AddListener(thirdLVL);
-        fourLVLBTN.onClick.AddListener(fourLVL);
-        fiveLVLBTN.onClick.AddListener(fiveLVL);
+        originalCameraPos = mainCamera.transform.position;
+        originalOrthographicSize = mainCamera.orthographicSize;
+
+        levelSelectPanel.SetActive(false);
+        settingsPanel.SetActive(false);
     }
 
-    // Update is called once per frame
-    void Update()
+    public void OnPlayClick()
     {
-        
+        StartCoroutine(PlaySequence());
     }
-    public void Play()
+
+    IEnumerator PlaySequence()
     {
-        menuPanel.SetActive(false);
-        //settingsPanel.SetActive(false);
-        lvlChoicePanel.SetActive(true);
-        cancelBTN.gameObject.SetActive(true);
+        title.SetActive(false);
+        buttonPanel.SetActive(false);
+
+        float elapsed = 0;
+        Vector3 startPos = mainCamera.transform.position;
+        float startSize = mainCamera.orthographicSize;
+
+        while (elapsed < zoomDuration)
+        {
+            float t = elapsed / zoomDuration;
+            t = Mathf.SmoothStep(0, 1, t);
+
+            mainCamera.transform.position = Vector3.Lerp(startPos, zoomTarget.position, t);
+            mainCamera.orthographicSize = Mathf.Lerp(startSize, zoomedOrthographicSize, t);
+
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        mainCamera.transform.position = zoomTarget.position;
+        mainCamera.orthographicSize = zoomedOrthographicSize;
+
+        levelSelectPanel.SetActive(true);
     }
-    /*public void Settings()
+
+    public void OnSettingsClick()
     {
-        menuPanel.SetActive(false);
-        //settingsPanel.SetActive(true);
-        lvlChoicePanel.SetActive(false);
-        cancelBTN.gameObject.SetActive(true);
+        StartCoroutine(SettingsSequence());
     }
-    */
-    public void Exit()
+
+    IEnumerator SettingsSequence()
     {
-        Application.Quit();
+        title.SetActive(false);
+        buttonPanel.SetActive(false);
+
+        float elapsed = 0;
+        Vector3 startPos = mainCamera.transform.position;
+        float startSize = mainCamera.orthographicSize;
+
+        while (elapsed < zoomDuration)
+        {
+            float t = elapsed / zoomDuration;
+            t = Mathf.SmoothStep(0, 1, t);
+            mainCamera.transform.position = Vector3.Lerp(startPos, zoomTarget.position, t);
+            mainCamera.orthographicSize = Mathf.Lerp(startSize, zoomedOrthographicSize, t);
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        settingsPanel.SetActive(true);
     }
-    public void Cancel()
+
+    public void BackToMainMenu()
     {
-        menuPanel.SetActive(true);
-        //settingsPanel.SetActive(false);
-        lvlChoicePanel.SetActive(false);
-        cancelBTN.gameObject.SetActive(false);
+        StopAllCoroutines();
+        levelSelectPanel.SetActive(false);
+        settingsPanel.SetActive(false);
+
+        StartCoroutine(ReturnCamera());
     }
-    public void firstLVL()
+
+    IEnumerator ReturnCamera()
     {
-        SceneManager.LoadScene(1);
+        float elapsed = 0;
+        Vector3 startPos = mainCamera.transform.position;
+        float startSize = mainCamera.orthographicSize;
+
+        while (elapsed < zoomDuration)
+        {
+            float t = elapsed / zoomDuration;
+            t = Mathf.SmoothStep(0, 1, t);
+            mainCamera.transform.position = Vector3.Lerp(startPos, originalCameraPos, t);
+            mainCamera.orthographicSize = Mathf.Lerp(startSize, originalOrthographicSize, t);
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        mainCamera.transform.position = originalCameraPos;
+        mainCamera.orthographicSize = originalOrthographicSize;
+
+        title.SetActive(true);
+        buttonPanel.SetActive(true);
     }
-    public void secondLVL() 
+
+    public void OnQuitClick()
     {
-        SceneManager.LoadScene(2);
+        #if UNITY_EDITOR
+            UnityEditor.EditorApplication.isPlaying = false;
+        #else
+            Application.Quit();
+        #endif
     }
-    public void thirdLVL()
+    public void LoadLevel(int levelIndex)
     {
-        SceneManager.LoadScene(3);
+        StartCoroutine(LoadLevelSequence(levelIndex));
     }
-    public void fourLVL()
+
+    IEnumerator LoadLevelSequence(int levelIndex)
     {
-        SceneManager.LoadScene(4);
+        levelSelectPanel.SetActive(false);
+        yield return new WaitForSeconds(0.2f);
+        SceneManager.LoadScene(levelIndex);
     }
-    public void fiveLVL()
+
+    public void LoadLevelByName(string sceneName)
     {
-        SceneManager.LoadScene(5);
+        StartCoroutine(LoadLevelByNameSequence(sceneName));
+    }
+
+    IEnumerator LoadLevelByNameSequence(string sceneName)
+    {
+        levelSelectPanel.SetActive(false);
+        yield return new WaitForSeconds(0.2f);
+        SceneManager.LoadScene(sceneName);
     }
 
 }
